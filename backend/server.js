@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const { db, initDb } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -8,37 +7,50 @@ const PORT = process.env.PORT || 8000;
 app.use(cors());
 app.use(express.json());
 
-initDb();
+const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbzh8355iN0doc75eY8TFafDOCXDczVO_fEZvhPXnpSzO-ojGp0DbP7zVl7sfBOkAZo5/exec";
 
-app.get('/api/tickets', (req, res) => {
-  db.all("SELECT * FROM tickets", [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+// Endpoints
+
+// GET all tickets
+app.get('/api/tickets', async (req, res) => {
+  try {
+    const response = await fetch(SHEET_API_URL);
+    if (!response.ok) {
+      throw new Error(`Google Sheets returned status: ${response.status}`);
     }
-    res.json(rows);
-  });
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("Error reading from Google Sheets:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/tickets', (req, res) => {
+// POST create a ticket
+app.post('/api/tickets', async (req, res) => {
   const { title, description, category, priority, status, assignee, reporter } = req.body;
   
   if (!title || !description || !category || !priority || !status || !assignee || !reporter) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  db.all("SELECT id FROM tickets", [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+  try {
+    const listResponse = await fetch(SHEET_API_URL);
+    if (!listResponse.ok) {
+      throw new Error(`Failed to read current ticket list: ${listResponse.status}`);
     }
+    const tickets = await listResponse.json();
 
     let lastNum = 0;
-    rows.forEach(row => {
-      try {
-        const num = parseInt(row.id.replace("IT-", ""), 10);
-        if (num > lastNum) {
-          lastNum = num;
-        }
-      } catch (e) {}
+    tickets.forEach(ticket => {
+      if (ticket.id && ticket.id.startsWith("IT-")) {
+        try {
+          const num = parseInt(ticket.id.replace("IT-", ""), 10);
+          if (num > lastNum) {
+            lastNum = num;
+          }
+        } catch (e) {}
+      }
     });
 
     const nextIdVal = lastNum + 1;
@@ -46,13 +58,8 @@ app.post('/api/tickets', (req, res) => {
     const newId = `IT-${padded}`;
     const today = new Date().toISOString().split('T')[0];
 
-    const stmt = db.prepare(`
-      INSERT INTO tickets (id, title, description, category, priority, status, assignee, reporter, date_created, date_updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run([
-      newId,
+    const newTicket = {
+      id: newId,
       title,
       description,
       category,
@@ -60,32 +67,34 @@ app.post('/api/tickets', (req, res) => {
       status,
       assignee,
       reporter,
-      today,
-      today
-    ], function(err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      res.status(201).json({
-        id: newId,
-        title,
-        description,
-        category,
-        priority,
-        status,
-        assignee,
-        reporter,
-        date_created: today,
-        date_updated: today
-      });
+      date_created: today,
+      date_updated: today
+    };
+
+    const createResponse = await fetch(SHEET_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create",
+        ticket: newTicket
+      })
     });
-    stmt.finalize();
-  });
+
+    if (!createResponse.ok) {
+      throw new Error(`Google Sheets write error: ${createResponse.status}`);
+    }
+
+    res.status(201).json(newTicket);
+  } catch (err) {
+    console.error("Error creating ticket in Google Sheets:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put('/api/tickets/:id', (req, res) => {
+// PUT update a ticket
+app.put('/api/tickets/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, category, priority, status, assignee, reporter } = req.body;
+  const { title, description, category, priority, status, assignee, reporter, date_created } = req.body;
 
   if (!title || !description || !category || !priority || !status || !assignee || !reporter) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -93,13 +102,8 @@ app.put('/api/tickets/:id', (req, res) => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const stmt = db.prepare(`
-    UPDATE tickets
-    SET title = ?, description = ?, category = ?, priority = ?, status = ?, assignee = ?, reporter = ?, date_updated = ?
-    WHERE id = ?
-  `);
-
-  stmt.run([
+  const updatedTicket = {
+    id,
     title,
     description,
     category,
@@ -107,39 +111,56 @@ app.put('/api/tickets/:id', (req, res) => {
     status,
     assignee,
     reporter,
-    today,
-    id
-  ], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({
-      id,
-      title,
-      description,
-      category,
-      priority,
-      status,
-      assignee,
-      reporter,
-      date_updated: today
+    date_created: date_created || today,
+    date_updated: today
+  };
+
+  try {
+    const updateResponse = await fetch(SHEET_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update",
+        ticket: updatedTicket
+      })
     });
-  });
-  stmt.finalize();
+
+    if (!updateResponse.ok) {
+      throw new Error(`Google Sheets update error: ${updateResponse.status}`);
+    }
+
+    res.json(updatedTicket);
+  } catch (err) {
+    console.error("Error updating ticket in Google Sheets:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete('/api/tickets/:id', (req, res) => {
+// DELETE a ticket
+app.delete('/api/tickets/:id', async (req, res) => {
   const { id } = req.params;
-  const stmt = db.prepare("DELETE FROM tickets WHERE id = ?");
-  stmt.run([id], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+
+  try {
+    const deleteResponse = await fetch(SHEET_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete",
+        id: id
+      })
+    });
+
+    if (!deleteResponse.ok) {
+      throw new Error(`Google Sheets delete error: ${deleteResponse.status}`);
     }
-    res.json({ status: "success", message: "Ticket deleted successfully" });
-  });
-  stmt.finalize();
+
+    res.json({ status: "success", message: "Ticket deleted successfully from Sheets" });
+  } catch (err) {
+    console.error("Error deleting ticket in Google Sheets:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => {
-  console.log(`Sprintly Express Backend running on port ${PORT}`);
+  console.log(`Sprintly Google Sheets Express Backend running on port ${PORT}`);
 });
