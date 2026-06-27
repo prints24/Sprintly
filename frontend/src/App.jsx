@@ -34,6 +34,7 @@ export default function App() {
   const [formAssignee, setFormAssignee] = useState(CONFIG.team[3]);
   const [formReporter, setFormReporter] = useState('');
   const [formCreated, setFormCreated] = useState('');
+  const [formIpAddress, setFormIpAddress] = useState('');
 
   // Chart refs
   const statusChartRef = useRef(null);
@@ -149,6 +150,7 @@ export default function App() {
         setFormAssignee(t.assignee);
         setFormReporter(t.reporter);
         setFormCreated(t.date_created);
+        setFormIpAddress(t.ip_address || '');
       }
     } else {
       setEditTicketId(null);
@@ -157,9 +159,10 @@ export default function App() {
       setFormCategory(CONFIG.categories[0]);
       setFormPriority(CONFIG.priorities[2]);
       setFormStatus(CONFIG.statuses[0]);
-      setFormAssignee(CONFIG.team[3]);
+      setFormAssignee(CONFIG.team[3]); // Default to Unassigned
       setFormReporter('');
       setFormCreated('');
+      setFormIpAddress('');
     }
     setIsModalOpen(true);
   };
@@ -178,7 +181,8 @@ export default function App() {
       priority: formPriority,
       status: formStatus,
       assignee: formAssignee,
-      reporter: formReporter.trim()
+      reporter: formReporter.trim(),
+      ip_address: formIpAddress
     };
 
     try {
@@ -312,6 +316,7 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Sidebar */}
       <aside className="sidebar">
         <div className="logo">
           <i className="fa-solid fa-square-poll-vertical brand-icon"></i>
@@ -351,6 +356,7 @@ export default function App() {
         </div>
       </aside>
 
+      {/* Main Workspace */}
       <main className="main-content">
         <header className="app-header">
           <div className="header-left">
@@ -387,6 +393,8 @@ export default function App() {
         </header>
 
         <div className="view-container">
+          
+          {/* DASHBOARD VIEW */}
           {activeTab === 'dashboard' && (
             <section className="view-section active">
               <div className="kpi-grid">
@@ -449,7 +457,7 @@ export default function App() {
                         <th>Category</th>
                         <th>Priority</th>
                         <th>Status</th>
-                        <th>Assignee</th>
+                        <th>Reporter</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -464,10 +472,8 @@ export default function App() {
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
                             <td><span className={`badge badge-status-${t.status.replace(/\s+/g, '').toLowerCase()}`}>{t.status}</span></td>
                             <td>
-                              <div className="card-assignee">
-                                <img className="card-assignee-avatar" src={`https://api.dicebear.com/7.x/initials/svg?seed=${t.assignee}`} alt="Avatar" />
-                                <span>{t.assignee}</span>
-                              </div>
+                              <div><strong>{t.reporter}</strong></div>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
                             </td>
                           </tr>
                       ))}
@@ -478,6 +484,7 @@ export default function App() {
             </section>
           )}
 
+          {/* KANBAN BOARD VIEW */}
           {activeTab === 'board' && (
             <section className="view-section active">
               <div className="kanban-board">
@@ -512,9 +519,9 @@ export default function App() {
                             <h4 className="card-title">{t.title}</h4>
                             <div className="card-meta">
                               <strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong>
-                              <div className="card-assignee">
-                                <img className="card-assignee-avatar" src={`https://api.dicebear.com/7.x/initials/svg?seed=${t.assignee}`} alt="Avatar" />
-                                <span>{t.assignee.split(" ")[0]}</span>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t.reporter.split(" ")[0]}</div>
+                                <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{t.assignee !== 'Unassigned' ? `@${t.assignee.split(" ")[0]}` : 'Unassigned'}</div>
                               </div>
                             </div>
                           </div>
@@ -526,6 +533,7 @@ export default function App() {
             </section>
           )}
 
+          {/* TICKETS LOG VIEW */}
           {activeTab === 'tickets' && (
             <section className="view-section active">
               <div className="filters-panel card">
@@ -572,7 +580,7 @@ export default function App() {
                         <th onClick={() => handleSort('priority')}>Priority {getSortIcon('priority')}</th>
                         <th onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
                         <th onClick={() => handleSort('assignee')}>Assignee {getSortIcon('assignee')}</th>
-                        <th onClick={() => handleSort('reporter')}>Reporter {getSortIcon('reporter')}</th>
+                        <th onClick={() => handleSort('reporter')}>Reporter & IP {getSortIcon('reporter')}</th>
                         <th onClick={() => handleSort('created')}>Created {getSortIcon('created')}</th>
                         <th onClick={() => handleSort('resolution')}>Res. Time (Days) {getSortIcon('resolution')}</th>
                         <th>Actions</th>
@@ -594,7 +602,10 @@ export default function App() {
                                 <span>{t.assignee}</span>
                               </div>
                             </td>
-                            <td>{t.reporter}</td>
+                            <td>
+                              <div><strong>{t.reporter}</strong></div>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
+                            </td>
                             <td>{t.date_created}</td>
                             <td style={{ fontWeight: 600 }}>{resTime} {resTime === 1 ? 'day' : 'days'}</td>
                             <td>
@@ -614,14 +625,16 @@ export default function App() {
               </div>
             </section>
           )}
+
         </div>
       </main>
 
+      {/* Modal Dialog Form */}
       {isModalOpen && (
         <div className="modal-overlay active">
           <div className="modal-content card">
             <div className="modal-header">
-              <h2>{editTicketId ? `Edit Ticket ${editTicketId}` : 'New Issue Incident'}</h2>
+              <h2>{editTicketId ? `Triage Ticket ${editTicketId}` : 'Report Bug / Suggestion'}</h2>
               <button className="close-modal" onClick={closeModal}>&times;</button>
             </div>
             <form onSubmit={handleFormSubmit}>
@@ -641,7 +654,7 @@ export default function App() {
                 <textarea 
                   rows="4" 
                   required 
-                  placeholder="Describe the steps to reproduce or details of the issue..."
+                  placeholder="Describe the bug, issue, or feature request details..."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                 />
@@ -669,17 +682,20 @@ export default function App() {
                     {CONFIG.statuses.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label>Assignee</label>
-                  <select value={formAssignee} onChange={(e) => setFormAssignee(e.target.value)}>
-                    {CONFIG.team.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
+                {/* ONLY SHOW ASSIGNEE TO ADMIN ON EDIT */}
+                {editTicketId && (
+                  <div className="form-group">
+                    <label>Assignee</label>
+                    <select value={formAssignee} onChange={(e) => setFormAssignee(e.target.value)}>
+                      {CONFIG.team.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Reporter <span className="required">*</span></label>
+                  <label>Your Name (Reporter) <span className="required">*</span></label>
                   <input 
                     type="text" 
                     required 
@@ -696,9 +712,24 @@ export default function App() {
                 )}
               </div>
 
+              {/* IP ADDRESS AUDIT DETAIL (ADMIN VIEW) */}
+              {editTicketId && formIpAddress && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Reporter IP Address (Audit Trail)</label>
+                    <input 
+                      type="text" 
+                      value={formIpAddress} 
+                      readOnly 
+                      style={{ color: 'var(--text-secondary)', backgroundColor: 'rgba(255,255,255,0.01)' }} 
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Ticket</button>
+                <button type="submit" className="btn btn-primary">{editTicketId ? 'Save Changes' : 'Submit Ticket'}</button>
               </div>
             </form>
           </div>
