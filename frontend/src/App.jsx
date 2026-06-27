@@ -36,6 +36,9 @@ export default function App() {
   const [formCreated, setFormCreated] = useState('');
   const [formIpAddress, setFormIpAddress] = useState('');
 
+  // Custom Delete Confirm State
+  const [deleteTicketId, setDeleteTicketId] = useState(null);
+
   // Chart refs
   const statusChartRef = useRef(null);
   const priorityChartRef = useRef(null);
@@ -209,18 +212,19 @@ export default function App() {
     }
   };
 
-  // Delete Ticket
-  const handleDeleteTicket = async (id) => {
-    if (confirm(`Are you sure you want to delete ticket ${id}?`)) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/tickets/${id}`, {
-          method: 'DELETE'
-        });
-        if (!response.ok) throw new Error("Delete failed");
-        fetchTickets();
-      } catch (err) {
-        console.error(err);
-      }
+  // Confirm and Execute Delete Ticket
+  const confirmDeleteTicket = async () => {
+    if (!deleteTicketId) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/tickets/${deleteTicketId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error("Delete failed");
+      setDeleteTicketId(null);
+      fetchTickets();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete ticket: " + err.message);
     }
   };
 
@@ -612,7 +616,7 @@ export default function App() {
                               <button className="action-btn" onClick={() => openModal(t.id)} title="Edit Ticket">
                                 <i className="fa-solid fa-pen-to-square"></i>
                               </button>
-                              <button className="action-btn" onClick={() => handleDeleteTicket(t.id)} style={{ color: 'var(--danger)' }} title="Delete Ticket">
+                              <button className="action-btn" onClick={() => setDeleteTicketId(t.id)} style={{ color: 'var(--danger)' }} title="Delete Ticket">
                                 <i className="fa-solid fa-trash"></i>
                               </button>
                             </td>
@@ -732,6 +736,30 @@ export default function App() {
                 <button type="submit" className="btn btn-primary">{editTicketId ? 'Save Changes' : 'Submit Ticket'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM DELETE CONFIRMATION MODAL */}
+      {deleteTicketId && (
+        <div className="modal-overlay active">
+          <div className="modal-content card" style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <div className="modal-header" style={{ justifyContent: 'center', borderBottom: 'none', marginBottom: '8px' }}>
+              <h2>Confirm Deletion</h2>
+            </div>
+            <p style={{ margin: '12px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+              Are you sure you want to delete ticket <strong>{deleteTicketId}</strong>? This action cannot be undone.
+            </p>
+            <div className="modal-footer" style={{ justifyContent: 'center', marginTop: '16px', borderTop: 'none', paddingTop: '0' }}>
+              <button className="btn btn-secondary" onClick={() => setDeleteTicketId(null)}>Cancel</button>
+              <button 
+                className="btn btn-primary" 
+                style={{ backgroundColor: 'var(--danger)' }} 
+                onClick={confirmDeleteTicket}
+              >
+                Delete Ticket
+              </button>
+            </div>
           </div>
         </div>
       )}
