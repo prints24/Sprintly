@@ -221,19 +221,30 @@ export default function App() {
     }
   };
 
-  // Confirm and Execute Delete Ticket
+  // Confirm and Execute Delete Ticket (with Optimistic UI updates)
   const confirmDeleteTicket = async () => {
     if (!deleteTicketId) return;
+    
+    const targetId = deleteTicketId;
+    const originalTickets = [...tickets];
+
+    // Optimistically update frontend UI state instantly
+    setTickets(tickets.filter(t => t.id !== targetId));
+    setDeleteTicketId(null);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/tickets/${deleteTicketId}`, {
+      const response = await fetch(`${API_BASE_URL}/tickets/${targetId}`, {
         method: 'DELETE'
       });
       if (!response.ok) throw new Error("Delete failed");
-      setDeleteTicketId(null);
-      fetchTickets();
+      
+      // Fetch latest list in background to ensure alignment with server state
+      await fetchTickets();
     } catch (err) {
       console.error(err);
       alert("Failed to delete ticket: " + err.message);
+      // Rollback to original state if delete failed
+      setTickets(originalTickets);
     }
   };
 
