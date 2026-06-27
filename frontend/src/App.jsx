@@ -36,6 +36,9 @@ export default function App() {
   const [formCreated, setFormCreated] = useState('');
   const [formIpAddress, setFormIpAddress] = useState('');
 
+  // Loading/Prevent Double Click State
+  const [isSaving, setIsSaving] = useState(false);
+
   // Custom Delete Confirm State
   const [deleteTicketId, setDeleteTicketId] = useState(null);
 
@@ -167,6 +170,7 @@ export default function App() {
       setFormCreated('');
       setFormIpAddress('');
     }
+    setIsSaving(false);
     setIsModalOpen(true);
   };
 
@@ -177,6 +181,9 @@ export default function App() {
   // Form Submit
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+    if (isSaving) return; // Prevent duplicate submissions
+
+    setIsSaving(true);
     const payload = {
       title: formTitle.trim(),
       description: formDescription.trim(),
@@ -206,9 +213,11 @@ export default function App() {
 
       if (!response.ok) throw new Error("Failed to save ticket");
       closeModal();
-      fetchTickets();
+      await fetchTickets();
     } catch (err) {
       alert(err.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -650,6 +659,7 @@ export default function App() {
                   placeholder="e.g., VPN connection dropping frequently" 
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
+                  disabled={isSaving}
                 />
               </div>
 
@@ -661,19 +671,20 @@ export default function App() {
                   placeholder="Describe the bug, issue, or feature request details..."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
+                  disabled={isSaving}
                 />
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Category</label>
-                  <select value={formCategory} onChange={(e) => setFormCategory(e.target.value)}>
+                  <select value={formCategory} onChange={(e) => setFormCategory(e.target.value)} disabled={isSaving}>
                     {CONFIG.categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label>Priority</label>
-                  <select value={formPriority} onChange={(e) => setFormPriority(e.target.value)}>
+                  <select value={formPriority} onChange={(e) => setFormPriority(e.target.value)} disabled={isSaving}>
                     {CONFIG.priorities.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
@@ -682,7 +693,7 @@ export default function App() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Status</label>
-                  <select value={formStatus} onChange={(e) => setFormStatus(e.target.value)}>
+                  <select value={formStatus} onChange={(e) => setFormStatus(e.target.value)} disabled={isSaving}>
                     {CONFIG.statuses.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -690,7 +701,7 @@ export default function App() {
                 {editTicketId && (
                   <div className="form-group">
                     <label>Assignee</label>
-                    <select value={formAssignee} onChange={(e) => setFormAssignee(e.target.value)}>
+                    <select value={formAssignee} onChange={(e) => setFormAssignee(e.target.value)} disabled={isSaving}>
                       {CONFIG.team.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
@@ -706,6 +717,7 @@ export default function App() {
                     placeholder="e.g., John Smith"
                     value={formReporter}
                     onChange={(e) => setFormReporter(e.target.value)}
+                    disabled={isSaving}
                   />
                 </div>
                 {editTicketId && (
@@ -732,8 +744,10 @@ export default function App() {
               )}
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="btn btn-primary">{editTicketId ? 'Save Changes' : 'Submit Ticket'}</button>
+                <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={isSaving}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                  {isSaving ? 'Submitting...' : (editTicketId ? 'Save Changes' : 'Submit Ticket')}
+                </button>
               </div>
             </form>
           </div>
