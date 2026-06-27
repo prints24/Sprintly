@@ -26,12 +26,20 @@ app.get('/api/tickets', async (req, res) => {
   }
 });
 
-// POST create a ticket
+// POST create a ticket with IP address tracking
 app.post('/api/tickets', async (req, res) => {
   const { title, description, category, priority, status, assignee, reporter } = req.body;
   
   if (!title || !description || !category || !priority || !status || !assignee || !reporter) {
     return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  // Extract client IP address
+  let clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Unknown';
+  if (clientIp === '::1') {
+    clientIp = '127.0.0.1'; // Clean up IPv6 loopback
+  } else if (clientIp.startsWith('::ffff:')) {
+    clientIp = clientIp.replace('::ffff:', ''); // Clean up IPv4 mapped IPv6
   }
 
   try {
@@ -68,7 +76,8 @@ app.post('/api/tickets', async (req, res) => {
       assignee,
       reporter,
       date_created: today,
-      date_updated: today
+      date_updated: today,
+      ip_address: clientIp // Set the captured client IP address
     };
 
     const createResponse = await fetch(SHEET_API_URL, {
@@ -94,7 +103,7 @@ app.post('/api/tickets', async (req, res) => {
 // PUT update a ticket
 app.put('/api/tickets/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, category, priority, status, assignee, reporter, date_created } = req.body;
+  const { title, description, category, priority, status, assignee, reporter, date_created, ip_address } = req.body;
 
   if (!title || !description || !category || !priority || !status || !assignee || !reporter) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -112,7 +121,8 @@ app.put('/api/tickets/:id', async (req, res) => {
     assignee,
     reporter,
     date_created: date_created || today,
-    date_updated: today
+    date_updated: today,
+    ip_address: ip_address || ''
   };
 
   try {
