@@ -178,12 +178,13 @@ export default function App() {
     setIsModalOpen(false);
   };
 
-  // Form Submit
+  // Form Submit (with Optimistic UI creation & editing)
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (isSaving) return; // Prevent duplicate submissions
+    if (isSaving) return;
 
     setIsSaving(true);
+
     const payload = {
       title: formTitle.trim(),
       description: formDescription.trim(),
@@ -192,32 +193,79 @@ export default function App() {
       status: formStatus,
       assignee: formAssignee,
       reporter: formReporter.trim(),
-      ip_address: formIpAddress
+      ip_address: formIpAddress || '127.0.0.1'
     };
 
-    try {
-      let response;
-      if (editTicketId) {
-        response = await fetch(`${API_BASE_URL}/tickets/${editTicketId}`, {
+    const originalTickets = [...tickets];
+    const today = new Date().toISOString().split('T')[0];
+
+    if (editTicketId) {
+      // 1. OPTIMISTIC UPDATE (EDIT)
+      const updatedTicket = {
+        id: editTicketId,
+        ...payload,
+        date_created: formCreated || today,
+        date_updated: today
+      };
+
+      // Apply instantly and close modal
+      setTickets(tickets.map(t => t.id === editTicketId ? updatedTicket : t));
+      closeModal();
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/tickets/${editTicketId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-      } else {
-        response = await fetch(`${API_BASE_URL}/tickets`, {
+        if (!response.ok) throw new Error("Failed to save changes");
+        await fetchTickets(); // Sync final list
+      } catch (err) {
+        alert(err.message);
+        setTickets(originalTickets); // Rollback
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      // 2. OPTIMISTIC CREATE
+      let lastNum = 0;
+      tickets.forEach(ticket => {
+        if (ticket.id && ticket.id.startsWith("IT-")) {
+          const num = parseInt(ticket.id.replace("IT-", ""), 10);
+          if (num > lastNum) lastNum = num;
+        }
+      });
+      const tempId = `IT-${String(lastNum + 1).padStart(3, '0')}`;
+      
+      const tempTicket = {
+        id: tempId,
+        ...payload,
+        date_created: today,
+        date_updated: today,
+        isOptimistic: true
+      };
+
+      // Append instantly and close modal
+      setTickets([...tickets, tempTicket]);
+      closeModal();
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/tickets`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        if (!response.ok) throw new Error("Failed to create ticket");
+        const createdTicket = await response.json();
+        
+        // Swap out the temporary ticket for the actual one from server
+        setTickets(prev => prev.map(t => t.id === tempId ? createdTicket : t));
+      } catch (err) {
+        alert(err.message);
+        setTickets(originalTickets); // Rollback
+      } finally {
+        setIsSaving(false);
       }
-
-      if (!response.ok) throw new Error("Failed to save ticket");
-      closeModal();
-      await fetchTickets();
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -489,9 +537,9 @@ export default function App() {
                         .sort((a, b) => new Date(b.date_created) - new Date(a.date_created))
                         .slice(0, 5)
                         .map(t => (
-                          <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => openModal(t.id)}>
+                          <tr key={t.id} style={{ cursor: 'pointer', opacity: t.isOptimistic ? 0.6 : 1 }} onClick={() => openModal(t.id)}>
                             <td><strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong></td>
-                            <td>{t.title}</td>
+                            <td>{t.title} {t.isOptimistic && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>(Saving...)</span>}</td>
                             <td><span className="card-tag">{t.category}</span></td>
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
                             <td><span className={`badge badge-status-${t.status.replace(/\s+/g, '').toLowerCase()}`}>{t.status}</span></td>
@@ -532,15 +580,16 @@ export default function App() {
                           <div 
                             className="kanban-card" 
                             key={t.id}
-                            draggable
+                            draggable={!t.isOptimistic}
                             onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
                             onClick={() => openModal(t.id)}
+                            style={{ opacity: t.isOptimistic ? 0.6 : 1 }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                               <span className="card-tag">{t.category}</span>
                               <span className={`badge badge-priority-${t.priority.toLowerCase()}`} style={{ fontSize: '9px', padding: '2px 6px' }}>{t.priority}</span>
                             </div>
-                            <h4 className="card-title">{t.title}</h4>
+                            <h4 className="card-title">{t.title} {t.isOptimistic && <span style={{ fontSize: '9px', fontStyle: 'italic' }}>(Saving...)</span>}</h4>
                             <div className="card-meta">
                               <strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong>
                               <div style={{ textAlign: 'right' }}>
@@ -614,9 +663,11 @@ export default function App() {
                       {sortedTickets.map(t => {
                         const resTime = getResolutionTime(t);
                         return (
-                          <tr key={t.id}>
+                          <tr key={t.id} style={{ opacity: t.isOptimistic ? 0.6 : 1 }}>
                             <td><strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong></td>
-                            <td style={{ fontWeight: 500 }}>{t.title}</td>
+                            <td style={{ fontWeight: 500 }}>
+                              {t.title} {t.isOptimistic && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400 }}>(Saving...)</span>}
+                            </td>
                             <td><span className="card-tag">{t.category}</span></td>
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
                             <td><span className={`badge badge-status-${t.status.replace(/\s+/g, '').toLowerCase()}`}>{t.status}</span></td>
@@ -633,10 +684,10 @@ export default function App() {
                             <td>{t.date_created}</td>
                             <td style={{ fontWeight: 600 }}>{resTime} {resTime === 1 ? 'day' : 'days'}</td>
                             <td>
-                              <button className="action-btn" onClick={() => openModal(t.id)} title="Edit Ticket">
+                              <button className="action-btn" onClick={() => openModal(t.id)} title="Edit Ticket" disabled={t.isOptimistic}>
                                 <i className="fa-solid fa-pen-to-square"></i>
                               </button>
-                              <button className="action-btn" onClick={() => setDeleteTicketId(t.id)} style={{ color: 'var(--danger)' }} title="Delete Ticket">
+                              <button className="action-btn" onClick={() => setDeleteTicketId(t.id)} style={{ color: 'var(--danger)' }} title="Delete Ticket" disabled={t.isOptimistic}>
                                 <i className="fa-solid fa-trash"></i>
                               </button>
                             </td>
