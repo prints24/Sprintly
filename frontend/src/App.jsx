@@ -223,7 +223,7 @@ export default function App() {
       setFormStatus(CONFIG.statuses[0]);
       setFormAssignee(CONFIG.team[3]); // Default to Unassigned
       setFormReporter('');
-      setFormCreated('');
+      setFormCreated(new Date().toISOString().split('T')[0]);
       setFormIpAddress('');
       setFormAttachment('');
     }
@@ -323,11 +323,23 @@ export default function App() {
       });
       const tempId = `IT-${String(lastNum + 1).padStart(3, '0')}`;
       
+      let finalDateCreated = todayISO;
+      if (formCreated) {
+        try {
+          const selected = new Date(formCreated);
+          const now = new Date();
+          selected.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+          finalDateCreated = selected.toISOString();
+        } catch (e) {
+          finalDateCreated = todayISO;
+        }
+      }
+
       const tempTicket = {
         id: tempId,
         ...payload,
         is_edited: "",
-        date_created: todayISO,
+        date_created: finalDateCreated,
         date_updated: todayISO,
         isOptimistic: true
       };
@@ -343,7 +355,7 @@ export default function App() {
             action: 'create',
             ticket: {
               ...tempTicket,
-              date_created: todayISO,
+              date_created: finalDateCreated, // Use finalDateCreated here too!
               date_updated: todayISO
             }
           })
@@ -936,12 +948,15 @@ export default function App() {
                     disabled={isSaving}
                   />
                 </div>
-                {editTicketId && (
-                  <div className="form-group">
-                    <label>Date Created</label>
-                    <input type="text" value={formCreated ? formCreated.split('T')[0] : ''} readOnly />
-                  </div>
-                )}
+                <div className="form-group">
+                  <label>Date Created</label>
+                  <input 
+                    type="date" 
+                    value={formCreated ? formCreated.split('T')[0] : ''} 
+                    onChange={(e) => setFormCreated(e.target.value)}
+                    disabled={isSaving}
+                  />
+                </div>
               </div>
 
               {/* OPTIONAL ATTACHMENT UPLOAD FIELD (CREATION ONLY) */}
@@ -1096,6 +1111,7 @@ export default function App() {
                 </div>
               )}
             </div>
+            <div className="modal-overlay active" style={{ display: 'none' }}></div>
             <div className="modal-footer" style={{ borderTop: '1px solid #2e3c54', paddingTop: '16px', justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setViewTicket(null)}>Close</button>
             </div>
