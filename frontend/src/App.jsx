@@ -30,7 +30,6 @@ export default function App() {
   const [filterCat, setFilterCat] = useState('All');
   const [filterPrio, setFilterPrio] = useState('All');
   const [filterStat, setFilterStat] = useState('All');
-  const [filterAss, setFilterAss] = useState('All');
 
   // Sorting
   const [currentSort, setCurrentSort] = useState({ column: 'id', direction: 'asc' });
@@ -188,7 +187,10 @@ export default function App() {
 
   // Age Resolution calculator
   const getResolutionTime = (ticket) => {
-    const created = new Date(ticket.date_created);
+    let created = new Date(ticket.date_created || ticket.date_updated || new Date());
+    if (isNaN(created.getTime())) {
+      created = new Date(ticket.date_updated || new Date());
+    }
     const end = ticket.status === "Done" ? new Date(ticket.date_updated) : new Date();
     created.setHours(0, 0, 0, 0);
     end.setHours(0, 0, 0, 0);
@@ -822,7 +824,7 @@ export default function App() {
                                 </div>
                               )}
                             </td>
-                            <td>{t.date_created ? t.date_created.split('T')[0] : 'N/A'}</td>
+                            <td>{t.date_created ? t.date_created.split('T')[0] : (t.date_updated ? t.date_updated.split('T')[0] : 'N/A')}</td>
                             <td style={{ fontWeight: 600 }}>{resTime} {resTime === 1 ? 'day' : 'days'}</td>
                             <td>
                               {modifyAllowed ? (
@@ -1057,7 +1059,7 @@ export default function App() {
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Created Date</label>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{viewTicket.date_created ? viewTicket.date_created.split('T')[0] : 'N/A'}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{viewTicket.date_created ? viewTicket.date_created.split('T')[0] : (viewTicket.date_updated ? viewTicket.date_updated.split('T')[0] : 'N/A')}</span>
                 </div>
               </div>
 
@@ -1077,7 +1079,6 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="modal-overlay active" style={{ display: 'none' }}></div>
             <div className="modal-footer" style={{ borderTop: '1px solid #2e3c54', paddingTop: '16px', justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setViewTicket(null)}>Close</button>
             </div>
