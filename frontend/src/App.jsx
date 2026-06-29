@@ -355,7 +355,7 @@ export default function App() {
             action: 'create',
             ticket: {
               ...tempTicket,
-              date_created: finalDateCreated, // Use finalDateCreated here too!
+              date_created: finalDateCreated,
               date_updated: todayISO
             }
           })
@@ -453,8 +453,7 @@ export default function App() {
     const matchesCat = filterCat === 'All' || t.category === filterCat;
     const matchesPrio = filterPrio === 'All' || t.priority === filterPrio;
     const matchesStat = filterStat === 'All' || t.status === filterStat;
-    const matchesAss = filterAss === 'All' || t.assignee === filterAss;
-    return matchesSearch && matchesCat && matchesPrio && matchesStat && matchesAss;
+    return matchesSearch && matchesCat && matchesPrio && matchesStat;
   });
 
   const sortedTickets = [...filteredTickets].sort((a, b) => {
@@ -739,7 +738,6 @@ export default function App() {
                                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t.reporter.split(" ")[0]}</div>
                                 <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
                                   {!canModifyTicket(t) && <i className="fa-solid fa-lock" style={{ marginRight: '4px', fontSize: '8px' }}></i>}
-                                  {t.assignee !== 'Unassigned' ? `@${t.assignee.split(" ")[0]}` : 'Unassigned'}
                                 </div>
                               </div>
                             </div>
@@ -778,13 +776,6 @@ export default function App() {
                       {CONFIG.statuses.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
-                  <div className="filter-group">
-                    <label>Assignee</label>
-                    <select value={filterAss} onChange={(e) => setFilterAss(e.target.value)}>
-                      <option value="All">All Assignees</option>
-                      {CONFIG.team.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
                 </div>
               </div>
 
@@ -798,7 +789,6 @@ export default function App() {
                         <th onClick={() => handleSort('category')}>Category {getSortIcon('category')}</th>
                         <th onClick={() => handleSort('priority')}>Priority {getSortIcon('priority')}</th>
                         <th onClick={() => handleSort('status')}>Status {getSortIcon('status')}</th>
-                        <th onClick={() => handleSort('assignee')}>Assignee {getSortIcon('assignee')}</th>
                         <th onClick={() => handleSort('reporter')}>Reporter & IP {getSortIcon('reporter')}</th>
                         <th onClick={() => handleSort('created')}>Created {getSortIcon('created')}</th>
                         <th onClick={() => handleSort('resolution')}>Res. Time (Days) {getSortIcon('resolution')}</th>
@@ -821,12 +811,6 @@ export default function App() {
                             <td><span className="card-tag">{t.category}</span></td>
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
                             <td><span className={`badge badge-status-${t.status.replace(/\s+/g, '').toLowerCase()}`}>{t.status}</span></td>
-                            <td>
-                              <div className="card-assignee">
-                                <img className="card-assignee-avatar" src={`https://api.dicebear.com/7.x/initials/svg?seed=${t.assignee}`} alt="Avatar" />
-                                <span>{t.assignee}</span>
-                              </div>
-                            </td>
                             <td>
                               <div><strong>{t.reporter}</strong></div>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
@@ -925,15 +909,6 @@ export default function App() {
                     {CONFIG.statuses.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                {/* ONLY SHOW ASSIGNEE TO ADMIN ON EDIT */}
-                {editTicketId && (
-                  <div className="form-group">
-                    <label>Assignee</label>
-                    <select value={formAssignee} onChange={(e) => setFormAssignee(e.target.value)} disabled={isSaving}>
-                      {CONFIG.team.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                )}
               </div>
 
               <div className="form-row">
@@ -1070,18 +1045,9 @@ export default function App() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Status</label>
-                  <span className={`badge badge-status-${viewTicket.status.replace(/\s+/g, '').toLowerCase()}`} style={{ display: 'inline-block' }}>{viewTicket.status}</span>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Assignee</label>
-                  <div className="card-assignee" style={{ marginTop: '4px' }}>
-                    <img className="card-assignee-avatar" src={`https://api.dicebear.com/7.x/initials/svg?seed=${viewTicket.assignee}`} alt="Avatar" />
-                    <span style={{ fontSize: '13px' }}>{viewTicket.assignee}</span>
-                  </div>
-                </div>
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Status</label>
+                <span className={`badge badge-status-${viewTicket.status.replace(/\s+/g, '').toLowerCase()}`} style={{ display: 'inline-block' }}>{viewTicket.status}</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
