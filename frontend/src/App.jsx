@@ -404,11 +404,6 @@ export default function App() {
     const id = e.dataTransfer.getData("text/plain");
     const ticket = tickets.find(t => t.id === id);
     if (ticket && ticket.status !== targetStatus) {
-      if (!canModifyTicket(ticket)) {
-        alert("Permission Denied: You can only move tickets you created within 10 minutes.");
-        return;
-      }
-
       const oldStatus = ticket.status;
       setTickets(tickets.map(t => t.id === id ? { ...t, status: targetStatus, is_edited: "true" } : t));
 
@@ -701,7 +696,7 @@ export default function App() {
                           <div 
                             className="kanban-card" 
                             key={t.id}
-                            draggable={!t.isOptimistic && canModifyTicket(t)}
+                            draggable={!t.isOptimistic}
                             onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
                             onClick={() => openModal(t.id)}
                             style={{ opacity: t.isOptimistic ? 0.6 : 1 }}
@@ -728,7 +723,6 @@ export default function App() {
                               <div style={{ textAlign: 'right' }}>
                                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t.reporter.split(" ")[0]}</div>
                                 <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-                                  {!canModifyTicket(t) && <i className="fa-solid fa-lock" style={{ marginRight: '4px', fontSize: '8px' }}></i>}
                                   {t.assignee !== 'Unassigned' ? `@${t.assignee.split(" ")[0]}` : 'Unassigned'}
                                 </div>
                               </div>
