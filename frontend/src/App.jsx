@@ -35,6 +35,11 @@ export default function App() {
   const [formReporter, setFormReporter] = useState('');
   const [formCreated, setFormCreated] = useState('');
   const [formIpAddress, setFormIpAddress] = useState('');
+  const [formAttachment, setFormAttachment] = useState('');
+
+  // Image Upload State
+  const [formImage, setFormImage] = useState(null);
+  const [formImageName, setFormImageName] = useState('');
 
   // Loading/Prevent Double Click State
   const [isSaving, setIsSaving] = useState(false);
@@ -157,6 +162,7 @@ export default function App() {
         setFormReporter(t.reporter);
         setFormCreated(t.date_created);
         setFormIpAddress(t.ip_address || '');
+        setFormAttachment(t.attachment || '');
       }
     } else {
       setEditTicketId(null);
@@ -169,13 +175,32 @@ export default function App() {
       setFormReporter('');
       setFormCreated('');
       setFormIpAddress('');
+      setFormAttachment('');
     }
+    setFormImage(null);
+    setFormImageName('');
     setIsSaving(false);
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
+  };
+
+  // Handle selected screenshot/image file
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormImage(reader.result); // Base64 data URI
+        setFormImageName(file.name);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFormImage(null);
+      setFormImageName('');
+    }
   };
 
   // Form Submit (with Optimistic UI creation & editing)
@@ -193,7 +218,10 @@ export default function App() {
       status: formStatus,
       assignee: formAssignee,
       reporter: formReporter.trim(),
-      ip_address: formIpAddress || '127.0.0.1'
+      ip_address: formIpAddress || '127.0.0.1',
+      image_data: formImage || '', // Send image payload
+      image_name: formImageName || '',
+      attachment: formAttachment || ''
     };
 
     const originalTickets = [...tickets];
@@ -546,6 +574,13 @@ export default function App() {
                             <td>
                               <div><strong>{t.reporter}</strong></div>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
+                              {t.attachment && (
+                                <div style={{ marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
+                                  <a href={t.attachment} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <i className="fa-solid fa-image"></i> Attachment
+                                  </a>
+                                </div>
+                              )}
                             </td>
                           </tr>
                       ))}
@@ -590,6 +625,15 @@ export default function App() {
                               <span className={`badge badge-priority-${t.priority.toLowerCase()}`} style={{ fontSize: '9px', padding: '2px 6px' }}>{t.priority}</span>
                             </div>
                             <h4 className="card-title">{t.title} {t.isOptimistic && <span style={{ fontSize: '9px', fontStyle: 'italic' }}>(Saving...)</span>}</h4>
+                            
+                            {t.attachment && (
+                              <div style={{ margin: '4px 0' }} onClick={(e) => e.stopPropagation()}>
+                                <a href={t.attachment} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9px', color: 'var(--accent-primary)' }}>
+                                  <i className="fa-solid fa-paperclip"></i> View Screenshot
+                                </a>
+                              </div>
+                            )}
+
                             <div className="card-meta">
                               <strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong>
                               <div style={{ textAlign: 'right' }}>
@@ -680,6 +724,13 @@ export default function App() {
                             <td>
                               <div><strong>{t.reporter}</strong></div>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
+                              {t.attachment && (
+                                <div style={{ marginTop: '4px' }}>
+                                  <a href={t.attachment} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <i className="fa-solid fa-image"></i> Attachment
+                                  </a>
+                                </div>
+                              )}
                             </td>
                             <td>{t.date_created}</td>
                             <td style={{ fontWeight: 600 }}>{resTime} {resTime === 1 ? 'day' : 'days'}</td>
@@ -789,6 +840,37 @@ export default function App() {
                   </div>
                 )}
               </div>
+
+              {/* OPTIONAL ATTACHMENT UPLOAD FIELD (CREATION ONLY) */}
+              {!editTicketId && (
+                <div className="form-group">
+                  <label>Screenshot Attachment (Optional)</label>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleFileChange}
+                    disabled={isSaving}
+                    style={{ border: '1px dashed #2e3c54', padding: '8px', borderRadius: '4px', width: '100%', cursor: 'pointer' }}
+                  />
+                </div>
+              )}
+
+              {/* READ-ONLY ATTACHMENT LINK FOR ADMINISTRATIVE VIEW */}
+              {editTicketId && formAttachment && (
+                <div className="form-group">
+                  <label>Attachment Screenshot</label>
+                  <div style={{ marginTop: '6px' }}>
+                    <a 
+                      href={formAttachment} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 500 }}
+                    >
+                      <i className="fa-solid fa-up-right-from-square"></i> Open Google Drive Screenshot
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* IP ADDRESS AUDIT DETAIL (ADMIN VIEW) */}
               {editTicketId && formIpAddress && (
