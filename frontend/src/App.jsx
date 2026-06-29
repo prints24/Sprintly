@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+// DIRECT GOOGLE SHEETS API CONNECTION (Serverless for GitHub Pages)
+const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzh8355iN0doc75eY8TFafDOCXDczVO_fEZvhPXnpSzO-ojGp0DbP7zVl7sfBOkAZo5/exec';
 
 const CONFIG = {
   priorities: ["Critical", "High", "Medium", "Low"],
@@ -9,11 +10,22 @@ const CONFIG = {
   team: ["Alex Chen", "Sarah Jenkins", "Marcus Brody", "Unassigned"]
 };
 
+// Generate persistent unique Device Fingerprint ID (acting as MAC Address check)
+let cachedDeviceId = localStorage.getItem('sprintly_device_id');
+if (!cachedDeviceId) {
+  cachedDeviceId = 'DEV-' + Math.random().toString(36).substring(2, 11).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+  localStorage.setItem('sprintly_device_id', cachedDeviceId);
+}
+
 export default function App() {
   const [tickets, setTickets] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'board', 'tickets'
   const [searchVal, setSearchVal] = useState('');
   
+  // Client Identity States
+  const [clientIp, setClientIp] = useState('127.0.0.1');
+  const [deviceId] = useState(cachedDeviceId);
+
   // Filters
   const [filterCat, setFilterCat] = useState('All');
   const [filterPrio, setFilterPrio] = useState('All');
@@ -53,11 +65,24 @@ export default function App() {
   const statusCanvasRef = useRef(null);
   const priorityCanvasRef = useRef(null);
 
-  // Fetch tickets
+  // Fetch client IP address on load
+  const loadClientIp = async () => {
+    try {
+      const res = await fetch('https://api.ipify.org?format=json');
+      const data = await res.json();
+      if (data && data.ip) {
+        setClientIp(data.ip);
+      }
+    } catch (e) {
+      console.warn("Could not retrieve public IP, defaulting to local:", e);
+    }
+  };
+
+  // Fetch tickets directly from Google Sheets
   const fetchTickets = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/tickets`);
-      if (!response.ok) throw new Error("Failed to fetch tickets");
+      const response = await fetch(SHEET_API_URL);
+      if (!response.ok) throw new Error("Failed to fetch tickets from Sheets");
       const data = await response.json();
       setTickets(data);
     } catch (err) {
@@ -66,6 +91,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    loadClientIp();
     fetchTickets();
   }, []);
 
@@ -136,6 +162,27 @@ export default function App() {
     }
   }, [activeTab, tickets]);
 
+  // Determine if a ticket can be edited or deleted by the current user
+  const canModifyTicket = (t) => {
+    if (!t || t.isOptimistic) return false;
+    
+    // 1. IP & MAC (Device ID) Verification
+    const matchesIp = String(t.ip_address) === String(clientIp);
+    const matchesMac = String(t.mac_address) === String(deviceId);
+    
+    if (!matchesIp || !matchesMac) return false;
+
+    // 2. 10-Minute Time Window check
+    try {
+      const createdDate = new Date(t.date_created);
+      const diffMs = new Date() - createdDate;
+      const diffMins = diffMs / (1000 * 60);
+      return diffMins <= 10;
+    } catch (e) {
+      return false;
+    }
+  };
+
   // Age Resolution calculator
   const getResolutionTime = (ticket) => {
     const created = new Date(ticket.date_created);
@@ -203,12 +250,13 @@ export default function App() {
     }
   };
 
-  // Form Submit (with Optimistic UI creation & editing)
+  // Form Submit (direct to Apps Script using text/plain to avoid preflight CORS blocks)
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (isSaving) return;
 
     setIsSaving(true);
+    const todayISO = new Date().toISOString();
 
     const payload = {
       title: formTitle.trim(),
@@ -218,33 +266,40 @@ export default function App() {
       status: formStatus,
       assignee: formAssignee,
       reporter: formReporter.trim(),
-      ip_address: formIpAddress || '127.0.0.1',
-      image_data: formImage || '', // Send image payload
+      ip_address: editTicketId ? formIpAddress : clientIp,
+      mac_address: deviceId,
+      image_data: formImage || '',
       image_name: formImageName || '',
       attachment: formAttachment || ''
     };
 
     const originalTickets = [...tickets];
-    const today = new Date().toISOString().split('T')[0];
 
     if (editTicketId) {
       // 1. OPTIMISTIC UPDATE (EDIT)
       const updatedTicket = {
         id: editTicketId,
         ...payload,
-        date_created: formCreated || today,
-        date_updated: today
+        is_edited: "true",
+        date_created: formCreated || todayISO,
+        date_updated: todayISO
       };
 
-      // Apply instantly and close modal
       setTickets(tickets.map(t => t.id === editTicketId ? updatedTicket : t));
       closeModal();
 
       try {
-        const response = await fetch(`${API_BASE_URL}/tickets/${editTicketId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        const response = await fetch(SHEET_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'update',
+            ticket: {
+              ...updatedTicket,
+              is_edited: "true",
+              date_updated: todayISO.split('T')[0] // Format for sheet cell log
+            }
+          })
         });
         if (!response.ok) throw new Error("Failed to save changes");
         await fetchTickets(); // Sync final list
@@ -268,26 +323,40 @@ export default function App() {
       const tempTicket = {
         id: tempId,
         ...payload,
-        date_created: today,
-        date_updated: today,
+        is_edited: "",
+        date_created: todayISO,
+        date_updated: todayISO,
         isOptimistic: true
       };
 
-      // Append instantly and close modal
       setTickets([...tickets, tempTicket]);
       closeModal();
 
       try {
-        const response = await fetch(`${API_BASE_URL}/tickets`, {
+        const response = await fetch(SHEET_API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'create',
+            ticket: {
+              ...tempTicket,
+              date_created: todayISO,
+              date_updated: todayISO
+            }
+          })
         });
         if (!response.ok) throw new Error("Failed to create ticket");
-        const createdTicket = await response.json();
+        const result = await response.json();
         
+        const finalTicket = {
+          ...tempTicket,
+          id: result.ticket.id || tempId,
+          attachment: result.attachment || ""
+        };
+        delete finalTicket.isOptimistic;
+
         // Swap out the temporary ticket for the actual one from server
-        setTickets(prev => prev.map(t => t.id === tempId ? createdTicket : t));
+        setTickets(prev => prev.map(t => t.id === tempId ? finalTicket : t));
       } catch (err) {
         alert(err.message);
         setTickets(originalTickets); // Rollback
@@ -297,34 +366,35 @@ export default function App() {
     }
   };
 
-  // Confirm and Execute Delete Ticket (with Optimistic UI updates)
+  // Confirm and Execute Delete Ticket
   const confirmDeleteTicket = async () => {
     if (!deleteTicketId) return;
     
     const targetId = deleteTicketId;
     const originalTickets = [...tickets];
 
-    // Optimistically update frontend UI state instantly
     setTickets(tickets.filter(t => t.id !== targetId));
     setDeleteTicketId(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/tickets/${targetId}`, {
-        method: 'DELETE'
+      const response = await fetch(SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'delete',
+          id: targetId
+        })
       });
       if (!response.ok) throw new Error("Delete failed");
-      
-      // Fetch latest list in background to ensure alignment with server state
       await fetchTickets();
     } catch (err) {
       console.error(err);
       alert("Failed to delete ticket: " + err.message);
-      // Rollback to original state if delete failed
       setTickets(originalTickets);
     }
   };
 
-  // Drag & Drop
+  // Drag & Drop (Disabled for other users' tickets)
   const handleDragOver = (e) => {
     e.preventDefault();
   };
@@ -334,14 +404,27 @@ export default function App() {
     const id = e.dataTransfer.getData("text/plain");
     const ticket = tickets.find(t => t.id === id);
     if (ticket && ticket.status !== targetStatus) {
+      if (!canModifyTicket(ticket)) {
+        alert("Permission Denied: You can only move tickets you created within 10 minutes.");
+        return;
+      }
+
       const oldStatus = ticket.status;
-      setTickets(tickets.map(t => t.id === id ? { ...t, status: targetStatus } : t));
+      setTickets(tickets.map(t => t.id === id ? { ...t, status: targetStatus, is_edited: "true" } : t));
 
       try {
-        const response = await fetch(`${API_BASE_URL}/tickets/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...ticket, status: targetStatus })
+        const response = await fetch(SHEET_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'update',
+            ticket: {
+              ...ticket,
+              status: targetStatus,
+              is_edited: "true",
+              date_updated: new Date().toISOString().split('T')[0]
+            }
+          })
         });
         if (!response.ok) throw new Error("Failed to update status");
         fetchTickets();
@@ -451,7 +534,7 @@ export default function App() {
         <div className="sidebar-footer">
           <div className="theme-toggle">
             <i className="fa-solid fa-server"></i>
-            <span>SQLite Connected (React)</span>
+            <span>Google Sheets (Serverless)</span>
           </div>
         </div>
       </aside>
@@ -483,10 +566,10 @@ export default function App() {
               />
             </div>
             <div className="user-profile">
-              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=SprintlyAdmin" alt="Avatar" className="avatar" />
+              <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${deviceId}`} alt="Avatar" className="avatar" />
               <div className="user-info">
-                <span className="username">Admin</span>
-                <span className="role">IT Operations</span>
+                <span className="username" style={{ fontSize: '11px' }}>Your Machine</span>
+                <span className="role">{clientIp.substring(0, 15)}</span>
               </div>
             </div>
           </div>
@@ -566,7 +649,10 @@ export default function App() {
                         .slice(0, 5)
                         .map(t => (
                           <tr key={t.id} style={{ cursor: 'pointer', opacity: t.isOptimistic ? 0.6 : 1 }} onClick={() => openModal(t.id)}>
-                            <td><strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong></td>
+                            <td>
+                              <strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong>
+                              {t.is_edited === "true" && <span className="edited-indicator" style={{ marginLeft: '4px', fontSize: '9px', color: 'var(--accent-primary)', backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '1px 4px', borderRadius: '3px' }}>Edited</span>}
+                            </td>
                             <td>{t.title} {t.isOptimistic && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>(Saving...)</span>}</td>
                             <td><span className="card-tag">{t.category}</span></td>
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
@@ -615,14 +701,17 @@ export default function App() {
                           <div 
                             className="kanban-card" 
                             key={t.id}
-                            draggable={!t.isOptimistic}
+                            draggable={!t.isOptimistic && canModifyTicket(t)}
                             onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
                             onClick={() => openModal(t.id)}
                             style={{ opacity: t.isOptimistic ? 0.6 : 1 }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                               <span className="card-tag">{t.category}</span>
-                              <span className={`badge badge-priority-${t.priority.toLowerCase()}`} style={{ fontSize: '9px', padding: '2px 6px' }}>{t.priority}</span>
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                {t.is_edited === "true" && <span style={{ fontSize: '8px', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '3px', padding: '1px 3px' }}>Edited</span>}
+                                <span className={`badge badge-priority-${t.priority.toLowerCase()}`} style={{ fontSize: '9px', padding: '2px 6px' }}>{t.priority}</span>
+                              </div>
                             </div>
                             <h4 className="card-title">{t.title} {t.isOptimistic && <span style={{ fontSize: '9px', fontStyle: 'italic' }}>(Saving...)</span>}</h4>
                             
@@ -638,7 +727,10 @@ export default function App() {
                               <strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong>
                               <div style={{ textAlign: 'right' }}>
                                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t.reporter.split(" ")[0]}</div>
-                                <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{t.assignee !== 'Unassigned' ? `@${t.assignee.split(" ")[0]}` : 'Unassigned'}</div>
+                                <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                                  {!canModifyTicket(t) && <i className="fa-solid fa-lock" style={{ marginRight: '4px', fontSize: '8px' }}></i>}
+                                  {t.assignee !== 'Unassigned' ? `@${t.assignee.split(" ")[0]}` : 'Unassigned'}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -706,9 +798,13 @@ export default function App() {
                     <tbody>
                       {sortedTickets.map(t => {
                         const resTime = getResolutionTime(t);
+                        const modifyAllowed = canModifyTicket(t);
                         return (
                           <tr key={t.id} style={{ opacity: t.isOptimistic ? 0.6 : 1 }}>
-                            <td><strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong></td>
+                            <td>
+                              <strong style={{ color: 'var(--accent-primary)' }}>{t.id}</strong>
+                              {t.is_edited === "true" && <span style={{ marginLeft: '4px', fontSize: '9px', color: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', padding: '1px 4px', borderRadius: '3px' }}>Edited</span>}
+                            </td>
                             <td style={{ fontWeight: 500 }}>
                               {t.title} {t.isOptimistic && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400 }}>(Saving...)</span>}
                             </td>
@@ -732,12 +828,24 @@ export default function App() {
                                 </div>
                               )}
                             </td>
-                            <td>{t.date_created}</td>
+                            <td>{t.date_created ? t.date_created.split('T')[0] : 'N/A'}</td>
                             <td style={{ fontWeight: 600 }}>{resTime} {resTime === 1 ? 'day' : 'days'}</td>
                             <td>
-                              <button className="action-btn" onClick={() => openModal(t.id)} title="Edit Ticket" disabled={t.isOptimistic}>
-                                <i className="fa-solid fa-pen-to-square"></i>
-                              </button>
+                              {modifyAllowed ? (
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button className="action-btn" onClick={() => openModal(t.id)} title="Edit Ticket">
+                                    <i className="fa-solid fa-pen-to-square"></i>
+                                  </button>
+                                  <button className="action-btn" onClick={() => setDeleteTicketId(t.id)} style={{ color: 'var(--danger)' }} title="Delete Ticket">
+                                    <i className="fa-solid fa-trash"></i>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                                  <i className="fa-solid fa-lock" style={{ fontSize: '11px' }}></i>
+                                  <span style={{ fontSize: '9px' }}>ReadOnly</span>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
@@ -833,7 +941,7 @@ export default function App() {
                 {editTicketId && (
                   <div className="form-group">
                     <label>Date Created</label>
-                    <input type="date" value={formCreated} readOnly />
+                    <input type="text" value={formCreated ? formCreated.split('T')[0] : ''} readOnly />
                   </div>
                 )}
               </div>
