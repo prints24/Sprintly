@@ -40,8 +40,8 @@ export default function App() {
   const [editTicketId, setEditTicketId] = useState(null);
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [formCategory, setFormCategory] = useState(CONFIG.categories[0]);
-  const [formPriority, setFormPriority] = useState(CONFIG.priorities[2]);
+  const [formCategory, setFormCategory] = useState(CONFIG.categories[1]);
+  const [formPriority, setFormPriority] = useState(CONFIG.priorities[3]);
   const [formStatus, setFormStatus] = useState(CONFIG.statuses[0]);
   const [formAssignee, setFormAssignee] = useState(CONFIG.team[3]);
   const [formReporter, setFormReporter] = useState('');
@@ -215,8 +215,8 @@ export default function App() {
       setEditTicketId(null);
       setFormTitle('');
       setFormDescription('');
-      setFormCategory(CONFIG.categories[0]);
-      setFormPriority(CONFIG.priorities[2]);
+      setFormCategory(CONFIG.categories[1]);
+      setFormPriority(CONFIG.priorities[3]);
       setFormStatus(CONFIG.statuses[0]);
       setFormAssignee(CONFIG.team[3]); // Default to Unassigned
       setFormReporter('');
