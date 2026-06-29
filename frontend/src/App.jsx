@@ -738,9 +738,6 @@ export default function App() {
                               <button className="action-btn" onClick={() => openModal(t.id)} title="Edit Ticket" disabled={t.isOptimistic}>
                                 <i className="fa-solid fa-pen-to-square"></i>
                               </button>
-                              <button className="action-btn" onClick={() => setDeleteTicketId(t.id)} style={{ color: 'var(--danger)' }} title="Delete Ticket" disabled={t.isOptimistic}>
-                                <i className="fa-solid fa-trash"></i>
-                              </button>
                             </td>
                           </tr>
                         );
