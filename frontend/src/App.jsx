@@ -698,8 +698,7 @@ export default function App() {
                             key={t.id}
                             draggable={!t.isOptimistic}
                             onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
-                            onClick={() => openModal(t.id)}
-                            style={{ opacity: t.isOptimistic ? 0.6 : 1 }}
+                            style={{ opacity: t.isOptimistic ? 0.6 : 1, cursor: 'grab' }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                               <span className="card-tag">{t.category}</span>
@@ -723,6 +722,7 @@ export default function App() {
                               <div style={{ textAlign: 'right' }}>
                                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t.reporter.split(" ")[0]}</div>
                                 <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                                  {!canModifyTicket(t) && <i className="fa-solid fa-lock" style={{ marginRight: '4px', fontSize: '8px' }}></i>}
                                   {t.assignee !== 'Unassigned' ? `@${t.assignee.split(" ")[0]}` : 'Unassigned'}
                                 </div>
                               </div>
