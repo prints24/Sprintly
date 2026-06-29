@@ -59,6 +59,9 @@ export default function App() {
   // Custom Delete Confirm State
   const [deleteTicketId, setDeleteTicketId] = useState(null);
 
+  // Read-only View Ticket State
+  const [viewTicket, setViewTicket] = useState(null);
+
   // Chart refs
   const statusChartRef = useRef(null);
   const priorityChartRef = useRef(null);
@@ -698,7 +701,8 @@ export default function App() {
                             key={t.id}
                             draggable={!t.isOptimistic}
                             onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
-                            style={{ opacity: t.isOptimistic ? 0.6 : 1, cursor: 'grab' }}
+                            onClick={() => setViewTicket(t)}
+                            style={{ opacity: t.isOptimistic ? 0.6 : 1, cursor: 'pointer' }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                               <span className="card-tag">{t.category}</span>
@@ -1016,6 +1020,84 @@ export default function App() {
               >
                 Delete Ticket
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* READ-ONLY TICKET DETAILS MODAL */}
+      {viewTicket && (
+        <div className="modal-overlay active">
+          <div className="modal-content card" style={{ maxWidth: '600px', width: '90%' }}>
+            <div className="modal-header">
+              <h2>Ticket Details ({viewTicket.id})</h2>
+              <button className="close-modal" onClick={() => setViewTicket(null)}>&times;</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px 0', textAlign: 'left' }}>
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Title</label>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '16px', fontWeight: 600 }}>{viewTicket.title}</h3>
+              </div>
+              
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Description</label>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '13px' }}>{viewTicket.description}</p>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Category</label>
+                  <span className="card-tag" style={{ display: 'inline-block' }}>{viewTicket.category}</span>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Priority</label>
+                  <span className={`badge badge-priority-${viewTicket.priority.toLowerCase()}`} style={{ display: 'inline-block' }}>{viewTicket.priority}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Status</label>
+                  <span className={`badge badge-status-${viewTicket.status.replace(/\s+/g, '').toLowerCase()}`} style={{ display: 'inline-block' }}>{viewTicket.status}</span>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Assignee</label>
+                  <div className="card-assignee" style={{ marginTop: '4px' }}>
+                    <img className="card-assignee-avatar" src={`https://api.dicebear.com/7.x/initials/svg?seed=${viewTicket.assignee}`} alt="Avatar" />
+                    <span style={{ fontSize: '13px' }}>{viewTicket.assignee}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Reporter</label>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>{viewTicket.reporter}</span>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Created Date</label>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{viewTicket.date_created ? viewTicket.date_created.split('T')[0] : 'N/A'}</span>
+                </div>
+              </div>
+
+              {viewTicket.attachment && (
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: '600' }}>Attachment Screenshot</label>
+                  <div style={{ marginTop: '6px' }}>
+                    <a 
+                      href={viewTicket.attachment} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 500 }}
+                    >
+                      <i className="fa-solid fa-up-right-from-square"></i> Open Google Drive Screenshot
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer" style={{ borderTop: '1px solid #2e3c54', paddingTop: '16px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setViewTicket(null)}>Close</button>
             </div>
           </div>
         </div>
