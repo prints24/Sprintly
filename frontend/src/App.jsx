@@ -645,10 +645,10 @@ export default function App() {
                   width: '200px', 
                   zIndex: 100, 
                   padding: '12px',
-                  backgroundColor: 'var(--bg-card)',
+                  backgroundColor: '#161f30',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.8)'
                 }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Online Users</h4>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
