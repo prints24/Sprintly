@@ -1070,7 +1070,7 @@ export default function App() {
                       href={formAttachment} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight 500 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 500 }}
                     >
                       <i className="fa-solid fa-up-right-from-square"></i> Open Google Drive Screenshot
                     </a>
