@@ -25,11 +25,16 @@ export default function App() {
   // Client Identity States
   const [clientIp, setClientIp] = useState('127.0.0.1');
   const [deviceId] = useState(cachedDeviceId);
+  const [username, setUsername] = useState(localStorage.getItem('sprintly_username') || '');
+  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(!localStorage.getItem('sprintly_username'));
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [isOnlineDropdownOpen, setIsOnlineDropdownOpen] = useState(false);
 
   // Filters
   const [filterCat, setFilterCat] = useState('All');
   const [filterPrio, setFilterPrio] = useState('All');
   const [filterStat, setFilterStat] = useState('All');
+  const [filterAss, setFilterAss] = useState('All');
 
   // Sorting
   const [currentSort, setCurrentSort] = useState({ column: 'id', direction: 'asc' });
@@ -96,6 +101,39 @@ export default function App() {
     loadClientIp();
     fetchTickets();
   }, []);
+
+  // Heartbeat & Presence Sync
+  const sendHeartbeat = async () => {
+    const storedUsername = localStorage.getItem('sprintly_username');
+    if (!storedUsername) return;
+    try {
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'heartbeat',
+          username: storedUsername,
+          device_id: deviceId
+        })
+      });
+      
+      const res = await fetch(`${SHEET_API_URL}?action=get_presence`);
+      if (res.ok) {
+        const users = await res.json();
+        setOnlineUsers(users);
+      }
+    } catch (e) {
+      console.warn("Presence syncing failed:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (username) {
+      sendHeartbeat();
+      const interval = setInterval(sendHeartbeat, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [username]);
 
   // Update charts inside dashboard tab
   useEffect(() => {
@@ -185,7 +223,6 @@ export default function App() {
     }
   };
 
-  // Age Resolution calculator
   const getResolutionTime = (ticket) => {
     let created = new Date(ticket.date_created || ticket.date_updated || new Date());
     if (isNaN(created.getTime())) {
@@ -224,7 +261,7 @@ export default function App() {
       setFormPriority(CONFIG.priorities[3]);
       setFormStatus(CONFIG.statuses[0]);
       setFormAssignee(CONFIG.team[3]); // Default to Unassigned
-      setFormReporter('');
+      setFormReporter(username || '');
       setFormCreated(new Date().toISOString().split('T')[0]);
       setFormIpAddress('');
       setFormAttachment('');
@@ -576,10 +613,64 @@ export default function App() {
                 }}
               />
             </div>
+            {/* Online Presence Dropdown Indicator */}
+            <div className="online-presence-container" style={{ position: 'relative', marginRight: '16px' }}>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                onClick={() => setIsOnlineDropdownOpen(!isOnlineDropdownOpen)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  padding: '6px 12px', 
+                  fontSize: '12px', 
+                  height: '38px',
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span style={{ display: 'inline-block', width: '8px', height: '8px', backgroundColor: '#10b981', borderRadius: '50%' }}></span>
+                <span>Active ({onlineUsers.length || 1})</span>
+                <i className="fa-solid fa-chevron-down" style={{ fontSize: '9px', opacity: 0.7 }}></i>
+              </button>
+              {isOnlineDropdownOpen && (
+                <div className="dropdown-menu card" style={{ 
+                  position: 'absolute', 
+                  right: 0, 
+                  top: '44px', 
+                  width: '200px', 
+                  zIndex: 100, 
+                  padding: '12px',
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+                }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Online Users</h4>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <li style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                      <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${username}`} alt="avatar" style={{ width: '18px', height: '18px', borderRadius: '50%' }} />
+                      <span style={{ fontWeight: 'bold' }}>{username || 'You'} (You)</span>
+                    </li>
+                    {onlineUsers.filter(u => u.device_id !== deviceId).map(u => (
+                      <li key={u.device_id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${u.username}`} alt="avatar" style={{ width: '18px', height: '18px', borderRadius: '50%' }} />
+                        <span>{u.username}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
             <div className="user-profile">
               <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${deviceId}`} alt="Avatar" className="avatar" />
               <div className="user-info">
-                <span className="username" style={{ fontSize: '11px' }}>Your Machine</span>
+                <span className="username" style={{ fontSize: '11px' }}>{username || 'Your Machine'}</span>
                 <span className="role">{clientIp.substring(0, 15)}</span>
               </div>
             </div>
@@ -1082,6 +1173,42 @@ export default function App() {
             <div className="modal-footer" style={{ borderTop: '1px solid #2e3c54', paddingTop: '16px', justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setViewTicket(null)}>Close</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ONCE-ONLY USERNAME PROMPT MODAL */}
+      {isUsernameModalOpen && (
+        <div className="modal-overlay active" style={{ zIndex: 1000 }}>
+          <div className="modal-content card" style={{ maxWidth: '400px', textAlign: 'center', padding: '24px' }}>
+            <div className="modal-header" style={{ justifyContent: 'center', borderBottom: 'none', marginBottom: '8px' }}>
+              <h2>Choose Your Username</h2>
+            </div>
+            <p style={{ margin: '12px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+              Welcome to Sprintly! Please enter your name to identify your session. This can only be set once.
+            </p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const inputName = e.target.usernameInput.value.trim();
+              if (inputName) {
+                localStorage.setItem('sprintly_username', inputName);
+                setUsername(inputName);
+                setIsUsernameModalOpen(false);
+              }
+            }}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <input 
+                  type="text" 
+                  name="usernameInput" 
+                  required 
+                  placeholder="e.g., Jane Doe" 
+                  style={{ textAlign: 'center', fontSize: '16px', padding: '10px' }}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                Get Started
+              </button>
+            </form>
           </div>
         </div>
       )}
