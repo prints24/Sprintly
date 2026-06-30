@@ -760,7 +760,7 @@ export default function App() {
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
                             <td><span className={`badge badge-status-${t.status.replace(/\s+/g, '').toLowerCase()}`}>{t.status}</span></td>
                             <td>
-                              <div><strong>{t.reporter}</strong></div>
+                              <div><strong>{t.system_owner && t.reporter !== t.system_owner ? `${t.reporter} via ${t.system_owner}` : t.reporter}</strong></div>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
                               {t.attachment && (
                                 <div style={{ marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
@@ -905,7 +905,7 @@ export default function App() {
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
                             <td><span className={`badge badge-status-${t.status.replace(/\s+/g, '').toLowerCase()}`}>{t.status}</span></td>
                             <td>
-                              <div><strong>{t.reporter}</strong></div>
+                              <div><strong>{t.system_owner && t.reporter !== t.system_owner ? `${t.reporter} via ${t.system_owner}` : t.reporter}</strong></div>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
                               {t.attachment && (
                                 <div style={{ marginTop: '4px' }}>
@@ -1146,7 +1146,7 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Reporter</label>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>{viewTicket.reporter}</span>
+                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>{viewTicket.system_owner && viewTicket.reporter !== viewTicket.system_owner ? `${viewTicket.reporter} via ${viewTicket.system_owner}` : viewTicket.reporter}</span>
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Created Date</label>
