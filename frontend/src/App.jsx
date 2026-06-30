@@ -760,7 +760,17 @@ export default function App() {
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
                             <td><span className={`badge badge-status-${t.status.replace(/\s+/g, '').toLowerCase()}`}>{t.status}</span></td>
                             <td>
-                              <div><strong>{t.system_owner && t.reporter !== t.system_owner ? `${t.reporter} via ${t.system_owner}` : t.reporter}</strong></div>
+                              <div>
+                                {t.system_owner && t.reporter !== t.system_owner ? (
+                                  <span>
+                                    <span style={{ color: '#60a5fa' }}>{t.reporter}</span>
+                                    <span style={{ color: '#64748b', margin: '0 6px' }}>|</span>
+                                    <span style={{ color: '#c084fc' }}>{t.system_owner}</span>
+                                  </span>
+                                ) : (
+                                  <strong>{t.reporter}</strong>
+                                )}
+                              </div>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
                               {t.attachment && (
                                 <div style={{ marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
@@ -905,7 +915,17 @@ export default function App() {
                             <td><span className={`badge badge-priority-${t.priority.toLowerCase()}`}>{t.priority}</span></td>
                             <td><span className={`badge badge-status-${t.status.replace(/\s+/g, '').toLowerCase()}`}>{t.status}</span></td>
                             <td>
-                              <div><strong>{t.system_owner && t.reporter !== t.system_owner ? `${t.reporter} via ${t.system_owner}` : t.reporter}</strong></div>
+                              <div>
+                                {t.system_owner && t.reporter !== t.system_owner ? (
+                                  <span>
+                                    <span style={{ color: '#60a5fa' }}>{t.reporter}</span>
+                                    <span style={{ color: '#64748b', margin: '0 6px' }}>|</span>
+                                    <span style={{ color: '#c084fc' }}>{t.system_owner}</span>
+                                  </span>
+                                ) : (
+                                  <strong>{t.reporter}</strong>
+                                )}
+                              </div>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>IP: {t.ip_address || 'N/A'}</div>
                               {t.attachment && (
                                 <div style={{ marginTop: '4px' }}>
@@ -1050,7 +1070,7 @@ export default function App() {
                       href={formAttachment} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 500 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight 500 }}
                     >
                       <i className="fa-solid fa-up-right-from-square"></i> Open Google Drive Screenshot
                     </a>
@@ -1146,7 +1166,17 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Reporter</label>
-                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>{viewTicket.system_owner && viewTicket.reporter !== viewTicket.system_owner ? `${viewTicket.reporter} via ${viewTicket.system_owner}` : viewTicket.reporter}</span>
+                   <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                     {viewTicket.system_owner && viewTicket.reporter !== viewTicket.system_owner ? (
+                       <span>
+                         <span style={{ color: '#60a5fa' }}>{viewTicket.reporter}</span>
+                         <span style={{ color: '#64748b', margin: '0 6px' }}>|</span>
+                         <span style={{ color: '#c084fc' }}>{viewTicket.system_owner}</span>
+                       </span>
+                     ) : (
+                       <span style={{ color: 'var(--text-secondary)' }}>{viewTicket.reporter}</span>
+                     )}
+                   </span>
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Created Date</label>
