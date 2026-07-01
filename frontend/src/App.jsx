@@ -861,6 +861,11 @@ export default function App() {
                     <div className="kanban-cards">
                       {tickets
                         .filter(t => t.status === status)
+                        .sort((a, b) => {
+                          const dateA = new Date(a.date_updated || a.date_created || 0);
+                          const dateB = new Date(b.date_updated || b.date_created || 0);
+                          return dateB - dateA;
+                        })
                         .map(t => (
                           <div 
                             className="kanban-card" 
@@ -884,6 +889,23 @@ export default function App() {
                                 <a href={t.attachment} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9px', color: 'var(--accent-primary)' }}>
                                   <i className="fa-solid fa-paperclip"></i> View Screenshot
                                 </a>
+                              </div>
+                            )}
+
+                            {t.remark && (
+                              <div style={{ 
+                                marginTop: '6px',
+                                marginBottom: '6px',
+                                padding: '6px 8px', 
+                                backgroundColor: 'rgba(16, 185, 129, 0.08)', 
+                                borderLeft: '3px solid #10b981', 
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                color: '#a7f3d0',
+                                fontStyle: 'italic',
+                                wordBreak: 'break-word'
+                              }}>
+                                <strong>Remark:</strong> {t.remark}
                               </div>
                             )}
 
