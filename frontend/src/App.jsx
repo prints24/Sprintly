@@ -892,7 +892,7 @@ export default function App() {
                               </div>
                             )}
 
-                            {t.remark && (
+                            {status === 'Done' && t.remark && (
                               <div style={{ 
                                 marginTop: '6px',
                                 marginBottom: '6px',
@@ -1158,7 +1158,7 @@ export default function App() {
                       href={formAttachment} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 500 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight 500 }}
                     >
                       <i className="fa-solid fa-up-right-from-square"></i> Open Google Drive Screenshot
                     </a>
@@ -1284,7 +1284,7 @@ export default function App() {
                 <span className={`badge badge-status-${viewTicket.status.replace(/\s+/g, '').toLowerCase()}`} style={{ display: 'inline-block' }}>{viewTicket.status}</span>
               </div>
 
-              {viewTicket.remark && (
+              {viewTicket.status === 'Done' && viewTicket.remark && (
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Closing Remark</label>
                   <p style={{ margin: 0, color: 'var(--success)', whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '13px', fontWeight: 500 }}>{viewTicket.remark}</p>
