@@ -52,6 +52,9 @@ export default function App() {
   const [formCreated, setFormCreated] = useState('');
   const [formIpAddress, setFormIpAddress] = useState('');
   const [formAttachment, setFormAttachment] = useState('');
+  const [formRemark, setFormRemark] = useState('');
+  const [isRemarkPromptOpen, setIsRemarkPromptOpen] = useState(false);
+  const [promptRemarkTicket, setPromptRemarkTicket] = useState(null);
 
   // Image Upload State
   const [formImage, setFormImage] = useState(null);
@@ -252,6 +255,7 @@ export default function App() {
         setFormCreated(t.date_created);
         setFormIpAddress(t.ip_address || '');
         setFormAttachment(t.attachment || '');
+        setFormRemark(t.remark || '');
       }
     } else {
       setEditTicketId(null);
@@ -265,6 +269,7 @@ export default function App() {
       setFormCreated(new Date().toISOString().split('T')[0]);
       setFormIpAddress('');
       setFormAttachment('');
+      setFormRemark('');
     }
     setFormImage(null);
     setFormImageName('');
@@ -312,7 +317,8 @@ export default function App() {
       mac_address: deviceId,
       image_data: formImage || '',
       image_name: formImageName || '',
-      attachment: formAttachment || ''
+      attachment: formAttachment || '',
+      remark: formRemark.trim()
     };
 
     const originalTickets = [...tickets];
@@ -458,29 +464,75 @@ export default function App() {
     const id = e.dataTransfer.getData("text/plain");
     const ticket = tickets.find(t => t.id === id);
     if (ticket && ticket.status !== targetStatus) {
-      const oldStatus = ticket.status;
-      setTickets(tickets.map(t => t.id === id ? { ...t, status: targetStatus, is_edited: "true" } : t));
+      if (targetStatus === 'Done') {
+        setPromptRemarkTicket(ticket);
+        setFormRemark(ticket.remark || '');
+        setIsRemarkPromptOpen(true);
+      } else {
+        const oldStatus = ticket.status;
+        setTickets(tickets.map(t => t.id === id ? { ...t, status: targetStatus, is_edited: "true" } : t));
 
-      try {
-        const response = await fetch(SHEET_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'update',
-            ticket: {
-              ...ticket,
-              status: targetStatus,
-              is_edited: "true",
-              date_updated: new Date().toISOString().split('T')[0]
-            }
-          })
-        });
-        if (!response.ok) throw new Error("Failed to update status");
-        fetchTickets();
-      } catch (err) {
-        setTickets(tickets.map(t => t.id === id ? { ...t, status: oldStatus } : t));
-        console.error(err);
+        try {
+          const response = await fetch(SHEET_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'update',
+              ticket: {
+                ...ticket,
+                status: targetStatus,
+                is_edited: "true",
+                date_updated: new Date().toISOString().split('T')[0]
+              }
+            })
+          });
+          if (!response.ok) throw new Error("Failed to update status");
+          fetchTickets();
+        } catch (err) {
+          setTickets(tickets.map(t => t.id === id ? { ...t, status: oldStatus } : t));
+          console.error(err);
+        }
       }
+    }
+  };
+
+  const submitRemark = async (e) => {
+    e.preventDefault();
+    if (!promptRemarkTicket) return;
+    
+    const id = promptRemarkTicket.id;
+    const oldStatus = promptRemarkTicket.status;
+    const targetStatus = 'Done';
+    const updatedRemark = formRemark.trim();
+
+    setIsSaving(true);
+    setTickets(tickets.map(t => t.id === id ? { ...t, status: targetStatus, remark: updatedRemark, is_edited: "true" } : t));
+    setIsRemarkPromptOpen(false);
+
+    try {
+      const response = await fetch(SHEET_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'update',
+          ticket: {
+            ...promptRemarkTicket,
+            status: targetStatus,
+            remark: updatedRemark,
+            is_edited: "true",
+            date_updated: new Date().toISOString().split('T')[0]
+          }
+        })
+      });
+      if (!response.ok) throw new Error("Failed to update status");
+      await fetchTickets();
+    } catch (err) {
+      setTickets(tickets.map(t => t.id === id ? { ...t, status: oldStatus } : t));
+      alert("Failed to update ticket: " + err.message);
+    } finally {
+      setIsSaving(false);
+      setPromptRemarkTicket(null);
+      setFormRemark('');
     }
   };
 
@@ -1024,6 +1076,20 @@ export default function App() {
                 </div>
               </div>
 
+              {formStatus === 'Done' && (
+                <div className="form-group">
+                  <label>Closing Remark / Resolution Notes <span className="required">*</span></label>
+                  <textarea 
+                    rows="3" 
+                    required 
+                    placeholder="Describe how the issue was resolved..."
+                    value={formRemark}
+                    onChange={(e) => setFormRemark(e.target.value)}
+                    disabled={isSaving}
+                  />
+                </div>
+              )}
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Your Name (Reporter) <span className="required">*</span></label>
@@ -1128,6 +1194,39 @@ export default function App() {
         </div>
       )}
 
+      {/* REMARK PROMPT MODAL */}
+      {isRemarkPromptOpen && (
+        <div className="modal-overlay active" style={{ zIndex: 1100 }}>
+          <div className="modal-content card" style={{ maxWidth: '450px', width: '90%' }}>
+            <div className="modal-header">
+              <h2>Close Ticket ({promptRemarkTicket?.id})</h2>
+              <button type="button" className="close-modal" onClick={() => { setIsRemarkPromptOpen(false); setPromptRemarkTicket(null); }}>&times;</button>
+            </div>
+            <form onSubmit={submitRemark}>
+              <div className="modal-body" style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                  Please add a closing remark or resolution notes for ticket <strong>{promptRemarkTicket?.title}</strong>:
+                </p>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <textarea
+                    rows="4"
+                    required
+                    placeholder="Describe how the issue was resolved..."
+                    value={formRemark}
+                    onChange={(e) => setFormRemark(e.target.value)}
+                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer" style={{ justifyContent: 'flex-end', gap: '8px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => { setIsRemarkPromptOpen(false); setPromptRemarkTicket(null); }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--success)' }}>Complete Ticket</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* READ-ONLY TICKET DETAILS MODAL */}
       {viewTicket && (
         <div className="modal-overlay active">
@@ -1162,6 +1261,13 @@ export default function App() {
                 <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Status</label>
                 <span className={`badge badge-status-${viewTicket.status.replace(/\s+/g, '').toLowerCase()}`} style={{ display: 'inline-block' }}>{viewTicket.status}</span>
               </div>
+
+              {viewTicket.remark && (
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Closing Remark</label>
+                  <p style={{ margin: 0, color: 'var(--success)', whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '13px', fontWeight: 500 }}>{viewTicket.remark}</p>
+                </div>
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
