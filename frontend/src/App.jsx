@@ -345,7 +345,7 @@ export default function App() {
             ticket: {
               ...updatedTicket,
               is_edited: "true",
-              date_updated: todayISO.split('T')[0] // Format for sheet cell log
+              date_updated: todayISO
             }
           })
         });
@@ -482,7 +482,7 @@ export default function App() {
                 ...ticket,
                 status: targetStatus,
                 is_edited: "true",
-                date_updated: new Date().toISOString().split('T')[0]
+                date_updated: new Date().toISOString()
               }
             })
           });
@@ -520,7 +520,7 @@ export default function App() {
             status: targetStatus,
             remark: updatedRemark,
             is_edited: "true",
-            date_updated: new Date().toISOString().split('T')[0]
+            date_updated: new Date().toISOString()
           }
         })
       });
