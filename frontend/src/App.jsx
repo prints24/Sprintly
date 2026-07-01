@@ -544,7 +544,8 @@ export default function App() {
     const matchesCat = filterCat === 'All' || t.category === filterCat;
     const matchesPrio = filterPrio === 'All' || t.priority === filterPrio;
     const matchesStat = filterStat === 'All' || t.status === filterStat;
-    return matchesSearch && matchesCat && matchesPrio && matchesStat;
+    const matchesAss = filterAss === 'All' || t.assignee === filterAss;
+    return matchesSearch && matchesCat && matchesPrio && matchesStat && matchesAss;
   });
 
   const sortedTickets = [...filteredTickets].sort((a, b) => {
@@ -1158,7 +1159,7 @@ export default function App() {
                       href={formAttachment} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight 500 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-primary)', fontSize: '13px', fontWeight: 500 }}
                     >
                       <i className="fa-solid fa-up-right-from-square"></i> Open Google Drive Screenshot
                     </a>
